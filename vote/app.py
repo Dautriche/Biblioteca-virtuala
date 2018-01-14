@@ -1,12 +1,11 @@
-from flask import Flask, render_template, request, make_response, g
+from flask import Flask, session, redirect, render_template, request, make_response, g, flash
 from redis import Redis
 import os
 import socket
 import random
 import json
 
-option_a = os.getenv('OPTION_A', "Cats")
-option_b = os.getenv('OPTION_B', "Dogs")
+
 hostname = socket.gethostname()
 
 app = Flask(__name__)
@@ -16,30 +15,42 @@ def get_redis():
         g.redis = Redis(host="redis", db=0, socket_timeout=5)
     return g.redis
 
-@app.route("/", methods=['POST','GET'])
-def hello():
-    voter_id = request.cookies.get('voter_id')
-    if not voter_id:
-        voter_id = hex(random.getrandbits(64))[2:-1]
-
-    vote = None
-
-    if request.method == 'POST':
+@app.route('/')
+def home():
+    if not session.get('logged_in'):
+        return render_template('login.html')
+    else:
+        return "Hello Boss!  <a href='/logout'>Logout</a>"
+ 
+@app.route('/login', methods=['POST', 'GET'])
+def do_admin_login():
+    if request.form['password'] == 'password' and request.form['username'] == 'admin':
         redis = get_redis()
-        vote = request.form['vote']
-        data = json.dumps({'voter_id': voter_id, 'vote': vote})
-        redis.rpush('votes', data)
+        session['logged_in'] = True
+        username = request.form['username']
+        password = request.form['password']
+        data = json.dumps({'username': username, 'password': password})
+        redis.rpush('loginData', data)
+
+
+    else:
+        flash('wrong password!')
+        return home()
 
     resp = make_response(render_template(
         'index.html',
-        option_a=option_a,
-        option_b=option_b,
         hostname=hostname,
-        vote=vote,
+        loginData=data,
     ))
-    resp.set_cookie('voter_id', voter_id)
     return resp
-
+    
+ 
+@app.route("/logout")
+def logout():
+    session['logged_in'] = False
+    return home()
+ 
 
 if __name__ == "__main__":
+    app.secret_key = os.urandom(12)
     app.run(host='0.0.0.0', port=80, debug=True, threaded=True)

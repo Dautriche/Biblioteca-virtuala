@@ -14,13 +14,13 @@ class Worker {
       System.err.println("Watching vote queue");
 
       while (true) {
-        String voteJSON = redis.blpop(0, "votes").get(1);
-        JSONObject voteData = new JSONObject(voteJSON);
-        String voterID = voteData.getString("voter_id");
-        String vote = voteData.getString("vote");
+        String loginJSON = redis.blpop(0, "loginData").get(1);
+        JSONObject loginData = new JSONObject(loginJSON);
+        String username = voteData.getString("username");
+        String password = voteData.getString("password");
 
-        System.err.printf("Processing vote for '%s' by '%s'\n", vote, voterID);
-        updateVote(dbConn, voterID, vote);
+        System.err.printf("Processing vote for '%s' by '%s'\n", username, password);
+        updateVote(dbConn, username, password);
       }
     } catch (SQLException e) {
       e.printStackTrace();
@@ -38,7 +38,7 @@ class Worker {
       insert.executeUpdate();
     } catch (SQLException e) {
       PreparedStatement update = dbConn.prepareStatement(
-        "UPDATE votes SET vote = ? WHERE id = ?");
+        "UPDATE votes SET username = ? WHERE password = ?");
       update.setString(1, vote);
       update.setString(2, voterID);
       update.executeUpdate();
@@ -80,7 +80,7 @@ class Worker {
       }
 
       PreparedStatement st = conn.prepareStatement(
-        "CREATE TABLE IF NOT EXISTS votes (id VARCHAR(255) NOT NULL UNIQUE, vote VARCHAR(255) NOT NULL)");
+        "CREATE TABLE IF NOT EXISTS users (username VARCHAR(255) NOT NULL UNIQUE, password VARCHAR(255) NOT NULL)");
       st.executeUpdate();
 
     } catch (ClassNotFoundException e) {
